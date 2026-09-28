@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Droplets, Flame, Wind, Thermometer, CloudDrizzle, Gauge as GaugeIcon, Compass, BatteryMedium } from "lucide-react";
+import { Droplets, Flame, Wind, Thermometer, CloudDrizzle, Activity, CloudFog } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { SensorCard } from "@/components/dashboard/SensorCard";
@@ -39,7 +39,7 @@ export default function LiveMonitoringPage() {
           >
             {nodes.map((n) => (
               <option key={n.id} value={n.id}>
-                {n.id} — {n.sector}
+                Node {n.id}
               </option>
             ))}
           </select>
@@ -51,13 +51,12 @@ export default function LiveMonitoringPage() {
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SensorCard icon={Droplets} label="Water level" value={String(node.waterLevel)} unit="%" range="0–60%" status={sensorStatus(node.waterLevel, 65, 85)} updatedAgo={timeAgo(node.lastSeen)} />
+          <SensorCard icon={Activity} label="Water flow" value={String(node.waterFlow)} unit="L/min" range="0–100 L/min" status="normal" updatedAgo={timeAgo(node.lastSeen)} />
           <SensorCard icon={Flame} label="CH4" value={String(node.methaneLEL)} unit="% LEL" range="0–3% LEL" status={sensorStatus(node.methaneLEL, 5, 7.5)} updatedAgo={timeAgo(node.lastSeen)} />
           <SensorCard icon={Wind} label="H2S" value={String(node.h2sPpm)} unit="ppm" range="0–6 ppm" status={sensorStatus(node.h2sPpm, 6, 10)} updatedAgo={timeAgo(node.lastSeen)} />
+          <SensorCard icon={CloudFog} label="Air Quality (MQ135)" value={String(node.mq135)} unit="" range="0–4095" status={sensorStatus(node.mq135, 2000, 3000)} updatedAgo={timeAgo(node.lastSeen)} />
           <SensorCard icon={Thermometer} label="Temperature" value={String(node.temperature)} unit="°C" range="18–32°C" status="normal" updatedAgo={timeAgo(node.lastSeen)} />
           <SensorCard icon={CloudDrizzle} label="Humidity" value={String(node.humidity)} unit="%" range="40–95%" status="normal" updatedAgo={timeAgo(node.lastSeen)} />
-          <SensorCard icon={GaugeIcon} label="Pressure" value={String(node.pressure)} unit="hPa" range="995–1018 hPa" status="normal" updatedAgo={timeAgo(node.lastSeen)} />
-          <SensorCard icon={Compass} label="Tilt" value={String(node.tilt)} unit="°" range="0–5°" status={sensorStatus(node.tilt, 6, 10)} updatedAgo={timeAgo(node.lastSeen)} />
-          <SensorCard icon={BatteryMedium} label="Battery" value={String(node.battery)} unit="%" range="≥30%" status={node.battery < 20 ? "critical" : node.battery < 30 ? "warning" : "normal"} updatedAgo={timeAgo(node.lastSeen)} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -86,9 +85,9 @@ export default function LiveMonitoringPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Battery over time</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Air Quality (MQ135) over time</CardTitle></CardHeader>
             <CardContent>
-              <SensorChart data={history} series={[{ key: "battery", color: "#4fd07a", label: "Battery", unit: "%" }]} />
+              <SensorChart data={history} series={[{ key: "mq135", color: "#b870ff", label: "Air Quality", unit: "" }]} />
             </CardContent>
           </Card>
         </div>

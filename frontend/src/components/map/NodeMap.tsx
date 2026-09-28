@@ -50,7 +50,7 @@ export function NodeMap({ nodes, gateways }: { nodes: DrainNode[]; gateways: Gat
           className="rounded-md border border-[var(--color-line)] bg-[var(--color-bg-2)]/95 px-2 py-1.5 text-xs text-[var(--color-text-1)] shadow-lg focus:border-[var(--color-cyan)] focus:outline-none"
         >
           <option value="all">All sectors</option>
-          {SECTORS.map((s) => (
+          {Array.from(new Set(nodes.map(n => n.sector))).sort().map((s) => (
             <option key={s} value={s}>
               {s}
             </option>

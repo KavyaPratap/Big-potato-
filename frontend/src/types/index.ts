@@ -35,6 +35,8 @@ export interface DrainNode {
   pressure: number; // hPa
   tilt: number; // degrees
   battery: number; // %
+  mq135: number; // Air Quality (ADC/ppm)
+  waterFlow: number; // L/min
   rssi: number; // dBm
   hopCount: number;
   parentNodeId: string | null;
@@ -58,6 +60,8 @@ export interface SensorReading {
   pressure: number;
   tilt: number;
   battery: number;
+  mq135: number;
+  waterFlow: number;
   rssi: number;
 }
 

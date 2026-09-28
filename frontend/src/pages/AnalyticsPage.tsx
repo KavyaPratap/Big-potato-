@@ -16,24 +16,26 @@ export default function AnalyticsPage() {
   const gateways = useGateways();
   const [rangeKey, setRangeKey] = useState("7d");
 
+  const dynamicSectors = useMemo(() => Array.from(new Set(nodes.map((n) => n.sector))).sort(), [nodes]);
+
   const sectorData = useMemo(
     () =>
-      SECTORS.map((s) => {
+      dynamicSectors.map((s) => {
         const sectorNodes = nodes.filter((n) => n.sector === s);
         const avg = sectorNodes.length ? sectorNodes.reduce((sum, n) => sum + n.waterLevel, 0) / sectorNodes.length : 0;
         return { sector: s.split("—")[0].trim(), waterLevel: Math.round(avg * 10) / 10 };
       }),
-    [nodes]
+    [nodes, dynamicSectors]
   );
 
   const batteryData = useMemo(
     () =>
-      SECTORS.map((s) => {
+      dynamicSectors.map((s) => {
         const sectorNodes = nodes.filter((n) => n.sector === s);
-        const avg = sectorNodes.length ? sectorNodes.reduce((sum, n) => sum + n.battery, 0) / sectorNodes.length : 0;
+        const avg = sectorNodes.length ? sectorNodes.reduce((sum, n) => sum + (n.battery ?? 100), 0) / sectorNodes.length : 0;
         return { sector: s.split("—")[0].trim(), battery: Math.round(avg * 10) / 10 };
       }),
-    [nodes]
+    [nodes, dynamicSectors]
   );
 
   const alertFrequency = useMemo(() => {

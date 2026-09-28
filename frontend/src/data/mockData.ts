@@ -155,6 +155,8 @@ function generateNodes(): DrainNode[] {
       pressure: Math.round(between(1000, 1015)),
       tilt: Math.round(between(0, tampered ? 14 : 3) * 10) / 10,
       battery: lowBattery ? Math.round(between(9, 22)) : Math.round(between(55, 100)),
+      mq135: Math.round(between(100, 300)),
+      waterFlow: Math.round(between(0, 50) * 10) / 10,
       rssi: weakSignal ? Math.round(between(-95, -82)) : Math.round(between(-70, -45)),
       hopCount: 1 + (i % 4),
       parentNodeId: i === 1 ? null : `MNH-${String(Math.max(1, i - 1 - (i % 3))).padStart(3, "0")}`,
@@ -444,6 +446,8 @@ export function buildHistory(node: DrainNode, hours: number, pointsPerHour = 4) 
       pressure: Math.round(between(1000, 1015)),
       tilt: node.tilt,
       battery: Math.round(battery * 10) / 10,
+      mq135: Math.round(between(100, 300)),
+      waterFlow: Math.round(between(0, 50) * 10) / 10,
       rssi: node.rssi + Math.round(between(-4, 4)),
     });
   }

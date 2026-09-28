@@ -20,6 +20,7 @@ export function useNodes(live = true) {
 
   useEffect(() => {
     let mounted = true;
+    // Immediately fetch via REST and mark loading done
     hardwareAdapter.getNodes().then((n) => {
       if (mounted) {
         setNodes(n);
@@ -32,8 +33,12 @@ export function useNodes(live = true) {
         setLoading(false);
       }
     });
+
+    // Subscribe to live updates (WebSocket) — updates nodes but never blocks loading
     if (!live) return () => { mounted = false; };
-    const unsub = hardwareAdapter.subscribeToLiveData((n) => mounted && setNodes(n));
+    const unsub = hardwareAdapter.subscribeToLiveData((n) => {
+      if (mounted) setNodes(n);
+    });
     return () => {
       mounted = false;
       unsub();
@@ -42,6 +47,7 @@ export function useNodes(live = true) {
 
   return { nodes, loading, error };
 }
+
 
 export function useNode(nodeId: string | undefined) {
   const { nodes } = useNodes(true);

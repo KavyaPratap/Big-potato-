@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Droplets, Flame, Wind, Thermometer, CloudDrizzle, Gauge as GaugeIcon, Compass, BatteryMedium } from "lucide-react";
+import { ArrowLeft, Droplets, Flame, Wind, Thermometer, CloudDrizzle, Activity, CloudFog } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge, RiskBadge } from "@/components/ui/StatusBadge";
@@ -12,13 +12,12 @@ import { timeAgo } from "@/utils/format";
 
 const readouts = [
   { key: "waterLevel", label: "Water level", unit: "%", icon: Droplets },
+  { key: "waterFlow", label: "Water flow", unit: "L/min", icon: Activity },
   { key: "methaneLEL", label: "CH4", unit: "% LEL", icon: Flame },
   { key: "h2sPpm", label: "H2S", unit: "ppm", icon: Wind },
+  { key: "mq135", label: "Air Quality (MQ135)", unit: "ADC", icon: CloudFog },
   { key: "temperature", label: "Temperature", unit: "°C", icon: Thermometer },
   { key: "humidity", label: "Humidity", unit: "%", icon: CloudDrizzle },
-  { key: "pressure", label: "Pressure", unit: "hPa", icon: GaugeIcon },
-  { key: "tilt", label: "Tilt", unit: "°", icon: Compass },
-  { key: "battery", label: "Battery", unit: "%", icon: BatteryMedium },
 ] as const;
 
 export default function NodeDetailPage() {
@@ -110,8 +109,8 @@ export default function NodeDetailPage() {
             <CardContent><SensorChart data={history} series={[{ key: "temperature", color: "#4d9fff", label: "Temperature", unit: "°C" }]} /></CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Battery</CardTitle></CardHeader>
-            <CardContent><SensorChart data={history} series={[{ key: "battery", color: "#4fd07a", label: "Battery", unit: "%" }]} /></CardContent>
+            <CardHeader><CardTitle>Air Quality (MQ135)</CardTitle></CardHeader>
+            <CardContent><SensorChart data={history} series={[{ key: "mq135", color: "#b870ff", label: "MQ135", unit: "ADC" }]} /></CardContent>
           </Card>
         </div>
 
