@@ -36,7 +36,7 @@ export default function LandingPage() {
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link
             to="/dashboard"
-            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-cyan)] px-4 py-2.5 text-sm font-semibold text-[#04211f] hover:bg-[var(--color-cyan)]/90"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-cyan)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-cyan)]/90"
           >
             Open monitoring dashboard <ArrowRight className="h-4 w-4" />
           </Link>

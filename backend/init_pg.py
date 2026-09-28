@@ -47,8 +47,18 @@ CREATE TABLE IF NOT EXISTS readings (
     ch4         INTEGER      DEFAULT 0,
     rssi        INTEGER      DEFAULT 0,
     snr         REAL         DEFAULT 0,
-    packet      INTEGER      DEFAULT 0
+    packet      INTEGER      DEFAULT 0,
+    wlvl        INTEGER,
+    wflow       REAL,
+    battery     REAL         DEFAULT 100
 );
+"""
+
+# Patch existing DBs that were created before wlvl/wflow/battery were added
+PATCH_COLUMNS = """
+ALTER TABLE readings ADD COLUMN IF NOT EXISTS wlvl    INTEGER;
+ALTER TABLE readings ADD COLUMN IF NOT EXISTS wflow   REAL;
+ALTER TABLE readings ADD COLUMN IF NOT EXISTS battery REAL DEFAULT 100;
 """
 
 CREATE_INDEX = """
@@ -82,10 +92,11 @@ def init_schema(dsn, label):
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute(CREATE_READINGS)
+        cur.execute(PATCH_COLUMNS)   # adds wlvl/wflow/battery to existing tables
         cur.execute(CREATE_INDEX)
         cur.close()
         conn.close()
-        print(f"  [ok] [{label}] Schema initialised")
+        print(f"  [ok] [{label}] Schema initialised (with wlvl/wflow/battery columns)")
     except Exception as e:
         print(f"  [!] [{label}] Failed: {e}")
         raise

@@ -30,9 +30,9 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
           <span>{formatDate(now)}</span>
         </div>
 
-        <div className="hidden items-center gap-1.5 rounded-md border border-[var(--color-line)] px-2 py-1 text-xs sm:flex">
-          <RadioTower className={`h-3.5 w-3.5 ${allOnline ? "text-[var(--color-ok)]" : "text-[var(--color-warn)]"}`} />
-          <span className="text-[var(--color-text-1)]">{gateways.length === 0 ? "Awaiting telemetry" : allOnline ? "All gateways online" : "Gateway degraded"}</span>
+        <div className={`hidden items-center gap-1.5 rounded-md border px-2 py-1 text-xs sm:flex ${gateways.length === 0 ? "bg-[var(--color-warn-dim)] border-[var(--color-warn)]/20" : allOnline ? "bg-[var(--color-ok-dim)] border-[var(--color-ok)]/20" : "bg-[var(--color-crit-dim)] border-[var(--color-crit)]/20"}`}>
+          <RadioTower className={`h-3.5 w-3.5 ${gateways.length === 0 ? "text-[var(--color-warn)]" : allOnline ? "text-[var(--color-ok)]" : "text-[var(--color-crit)]"}`} />
+          <span className={gateways.length === 0 ? "text-[var(--color-warn)] font-medium" : allOnline ? "text-[var(--color-ok)] font-medium" : "text-[var(--color-crit)] font-medium"}>{gateways.length === 0 ? "Awaiting telemetry" : allOnline ? "All gateways online" : "Gateway degraded"}</span>
         </div>
 
         <button className="relative rounded-md p-1.5 text-[var(--color-text-1)] hover:bg-[var(--color-bg-3)] hover:text-[var(--color-text-0)]">
@@ -43,8 +43,6 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
             </span>
           )}
         </button>
-
-        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[var(--color-cyan)]/40 to-[var(--color-blue)]/40" />
       </div>
     </header>
   );

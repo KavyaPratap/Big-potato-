@@ -45,7 +45,7 @@ export default function OverviewPage() {
             <KpiCard icon={AlertTriangle} label="Critical nodes" value={String(stats.critical)} accent="crit" />
             <KpiCard icon={Droplets} label="Avg water level" value={stats.avgWater.toFixed(0)} suffix="%" accent="cyan" />
             <KpiCard icon={Activity} label="Network health" value={stats.meshHealth.toFixed(1)} suffix="%" accent="ok" />
-            <KpiCard icon={Radio} label="Gateway status" value={stats.gwOnline === gateways.length ? "ONLINE" : "DEGRADED"} accent={stats.gwOnline === gateways.length ? "ok" : "warn"} />
+            <KpiCard icon={Radio} label="Gateway status" value={stats.gwOnline === 0 ? "OFFLINE" : stats.gwOnline === gateways.length ? "ONLINE" : "DEGRADED"} accent={stats.gwOnline === 0 ? "crit" : stats.gwOnline === gateways.length ? "ok" : "warn"} />
             <KpiCard icon={BrainCircuit} label="Predicted blockages" value={String(stats.highRiskPredictions)} accent="crit" />
           </div>
         )}
@@ -80,14 +80,14 @@ export default function OverviewPage() {
                 nodes.reduce<Record<string, { total: number; alert: number }>>((acc, n) => {
                   acc[n.sector] = acc[n.sector] ?? { total: 0, alert: 0 };
                   acc[n.sector].total++;
-                  if (n.status === "critical" || n.status === "warning") acc[n.sector].alert++;
+                  if (n.status !== "online") acc[n.sector].alert++;
                   return acc;
                 }, {})
               ).map(([sector, v]) => (
                 <div key={sector} className="flex items-center justify-between rounded-md bg-[var(--color-bg-1)] px-3 py-2 text-xs">
                   <span className="truncate pr-2 text-[var(--color-text-1)]">{sector}</span>
                   <span className="mono shrink-0 text-[var(--color-text-2)]">
-                    {v.total - v.alert}/{v.total} nominal
+                    {v.total - v.alert}/{v.total} online
                   </span>
                 </div>
               ))}

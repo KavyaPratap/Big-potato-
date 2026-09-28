@@ -44,7 +44,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-1)] transition-[width] duration-200",
+        "flex h-full flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-sidebar)] transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[236px]"
       )}
     >
@@ -68,9 +68,9 @@ export function Sidebar({
             end={end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors relative overflow-hidden",
                 isActive
-                  ? "bg-[var(--color-cyan)]/10 text-[var(--color-cyan)]"
+                  ? "bg-[var(--color-cyan-dim)] text-[var(--color-cyan)] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-[var(--color-cyan)]"
                   : "text-[var(--color-text-1)] hover:bg-[var(--color-bg-3)] hover:text-[var(--color-text-0)]"
               )
             }

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, LayerGroup } from "react-leaflet";
+import { useMemo, useState, useEffect } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, LayerGroup, useMap } from "react-leaflet";
 import { Link } from "react-router-dom";
 import type { DrainNode, Gateway, NodeStatus } from "@/types";
 import { SECTORS } from "@/data/mockData";
 import { timeAgo } from "@/utils/format";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 const STATUS_HEX: Record<NodeStatus, string> = {
@@ -13,6 +14,17 @@ const STATUS_HEX: Record<NodeStatus, string> = {
   offline: "#5b6669",
 };
 const GATEWAY_HEX = "#4d9fff";
+
+function MapUpdater({ nodes }: { nodes: DrainNode[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const bounds = L.latLngBounds(nodes.map(n => [n.location.lat, n.location.lng]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [nodes, map]);
+  return null;
+}
 
 export function NodeMap({ nodes, gateways }: { nodes: DrainNode[]; gateways: Gateway[] }) {
   const [statusFilter, setStatusFilter] = useState<NodeStatus | "all">("all");
@@ -76,6 +88,7 @@ export function NodeMap({ nodes, gateways }: { nodes: DrainNode[]; gateways: Gat
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapUpdater nodes={filtered} />
         <LayerGroup>
           {gateways.map((g) => (
             <CircleMarker
@@ -98,19 +111,21 @@ export function NodeMap({ nodes, gateways }: { nodes: DrainNode[]; gateways: Gat
             <CircleMarker
               key={n.id}
               center={[n.location.lat, n.location.lng]}
-              radius={6}
+              radius={12}
               pathOptions={{
                 color: STATUS_HEX[n.status],
                 fillColor: STATUS_HEX[n.status],
                 fillOpacity: 0.85,
-                weight: 1.5,
+                weight: 3,
               }}
             >
               <Popup minWidth={220}>
                 <div className="mono text-xs leading-relaxed">
-                  <p className="mb-1 text-sm font-semibold">{n.id}</p>
+                  <p className="mb-0 text-sm font-semibold">Node {n.id}</p>
+                  <p className="mb-2 text-[var(--color-cyan-dim)]">{n.location.label}</p>
                   <p>Status: {n.status.toUpperCase()}</p>
                   <p>Water level: {n.waterLevel}%</p>
+                  <p>Water flow: {n.waterFlow} L/min</p>
                   <p>CH4: {n.methaneLEL}% LEL</p>
                   <p>H2S: {n.h2sPpm} ppm</p>
                   <p>Temperature: {n.temperature}°C</p>
@@ -119,7 +134,7 @@ export function NodeMap({ nodes, gateways }: { nodes: DrainNode[]; gateways: Gat
                   <p>Signal: {n.rssi} dBm</p>
                   <p>Last seen: {timeAgo(n.lastSeen)}</p>
                   <p>Risk: {n.risk}</p>
-                  <Link to={`/nodes/${n.id}`} className="mt-1.5 inline-block font-semibold text-[#2a9d99] underline">
+                  <Link to={`/nodes/${n.id}`} className="mt-1.5 inline-block font-semibold text-[var(--color-cyan-dim)] underline">
                     View details →
                   </Link>
                 </div>

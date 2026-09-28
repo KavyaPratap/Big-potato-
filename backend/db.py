@@ -10,6 +10,8 @@ Query functions read exclusively from local PostgreSQL for low latency.
 """
 import os
 import asyncio
+import json
+import urllib.request
 import psycopg2
 import psycopg2.pool
 from psycopg2.extras import RealDictCursor
@@ -31,18 +33,13 @@ def _local_dsn() -> dict:
 
 def _online_dsn() -> dict:
     return dict(
-        host=os.getenv("SUPABASE_HOST", ""),
-        port=int(os.getenv("SUPABASE_PORT", 5432)),
-        dbname=os.getenv("SUPABASE_DB", "postgres"),
-        user=os.getenv("SUPABASE_USER", "postgres"),
-        password=os.getenv("SUPABASE_PASSWORD", ""),
-        sslmode="require",
-        connect_timeout=5,
+        url=os.getenv("SUPABASE_URL", "https://bihleohcyryxolygeypi.supabase.co"),
+        key=os.getenv("SUPABASE_KEY", "")
     )
 
 def _online_configured() -> bool:
-    host = os.getenv("SUPABASE_HOST", "")
-    return bool(host) and "<YOUR_PROJECT_REF>" not in host
+    dsn = _online_dsn()
+    return bool(dsn["url"]) and bool(dsn["key"])
 
 def _online_enabled() -> bool:
     return (
@@ -71,10 +68,10 @@ def release_conn(conn):
 # ── Insert helper ─────────────────────────────────────────────────────────────
 _INSERT_SQL = """
 INSERT INTO readings
-    (node_id, timestamp, temp, hum, mq135, h2s, ch4, rssi, snr, packet)
+    (node_id, timestamp, temp, hum, mq135, h2s, ch4, rssi, snr, packet, wlvl, wflow, battery)
 VALUES
     (%(node_id)s, %(timestamp)s, %(temp)s, %(hum)s, %(mq135)s,
-     %(h2s)s, %(ch4)s, %(rssi)s, %(snr)s, %(packet)s)
+     %(h2s)s, %(ch4)s, %(rssi)s, %(snr)s, %(packet)s, %(wlvl)s, %(wflow)s, %(battery)s)
 RETURNING id;
 """
 
@@ -94,17 +91,27 @@ def _insert_local(params: dict) -> int:
         release_conn(conn)
 
 def _insert_online(params: dict):
-    """Write to Supabase (called in a background thread)."""
+    """Write to Supabase via REST API (called in a background thread)."""
     try:
         dsn = _online_dsn()
-        conn = psycopg2.connect(**dsn, cursor_factory=RealDictCursor)
-        with conn.cursor() as cur:
-            cur.execute(_INSERT_SQL, params)
-        conn.commit()
-        conn.close()
+        url = dsn["url"].rstrip("/") + "/rest/v1/readings"
+        key = dsn["key"]
+        
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        
+        # REST API expects fields matching column names exactly
+        payload = json.dumps(params).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            pass
     except Exception as e:
         # Non-fatal – log and continue
-        print(f"[DB] ⚠ Supabase write failed: {e}")
+        print(f"[DB] ⚠ Supabase REST write failed: {e}")
 
 async def insert_reading(
     node_id: int,
@@ -117,6 +124,9 @@ async def insert_reading(
     rssi: int,
     snr: float,
     packet: int,
+    wlvl: Optional[int] = None,
+    wflow: Optional[float] = None,
+    battery: Optional[float] = None,
 ) -> int:
     """
     Dual-write a reading to local PG (sync) and Supabase (async background).
@@ -133,6 +143,9 @@ async def insert_reading(
         rssi=rssi,
         snr=snr,
         packet=packet,
+        wlvl=wlvl,
+        wflow=wflow,
+        battery=battery,
     )
 
     # 1. Local (always)
@@ -140,7 +153,7 @@ async def insert_reading(
 
     # 2. Online (fire-and-forget in thread pool)
     if _online_enabled():
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()   # correct inside async context (3.10+)
         loop.run_in_executor(None, _insert_online, params)
 
     return row_id
@@ -175,9 +188,11 @@ def db_status() -> dict:
 
     if _online_configured():
         try:
-            conn = psycopg2.connect(**_online_dsn())
-            conn.close()
-            online_ok = True
+            dsn = _online_dsn()
+            req = urllib.request.Request(dsn["url"].rstrip("/") + "/rest/v1/", headers={"apikey": dsn["key"]})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    online_ok = True
         except Exception:
             pass
 

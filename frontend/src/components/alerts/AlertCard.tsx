@@ -17,7 +17,7 @@ export function AlertCard({
 }) {
   const c = SEVERITY_COLORS[alert.severity];
   return (
-    <div className={cn("rounded-lg border bg-[var(--color-bg-2)] p-4", c.border)}>
+    <div className={cn("relative rounded-lg border bg-[var(--color-bg-2)] p-4 overflow-hidden", c.border, alert.severity === "critical" && "border-l-4 border-l-[var(--color-crit)]")}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <SeverityBadge severity={alert.severity} />

@@ -24,7 +24,7 @@ export function LiveDot({ status }: { status: NodeStatus }) {
   return (
     <span className={cn("relative inline-flex h-2 w-2", c.text)}>
       <span className={cn("absolute inline-flex h-full w-full rounded-full pulse-ring", c.text)} />
-      <span className={cn("relative inline-flex h-2 w-2 rounded-full", c.dot)} />
+      <span className={cn("relative inline-flex h-2 w-2 rounded-full", c.dot)} style={{ boxShadow: "0 0 8px currentColor" }} />
     </span>
   );
 }
