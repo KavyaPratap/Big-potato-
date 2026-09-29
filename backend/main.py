@@ -167,9 +167,9 @@ async def simulate_node1():
 #   H2S (MQ-136) ~ 932                     0 ppm H2S
 #   CH4 (MQ-4)   ~1936                     ~0% LEL (atmospheric CH4 is 0.02%)
 
-MQ135_BASELINE = 2632   # ADC in clean air  →  output = 400 AQI (baseline AQI)
-H2S_BASELINE   = 1300   # ADC in clean air  →  output = NOISE_FLOOR_H2S ppm
-CH4_BASELINE   = 2400   # ADC in clean air  →  output = NOISE_FLOOR_CH4 % LEL
+MQ135_BASELINE = 2300   # ADC in clean air  →  output = 400 AQI (baseline AQI)
+H2S_BASELINE   = 850    # ADC in clean air  →  output = NOISE_FLOOR_H2S ppm
+CH4_BASELINE   = 1650   # ADC in clean air  →  output = NOISE_FLOOR_CH4 % LEL
 
 # Realistic noise floors — sensors always show a tiny non-zero value in clean air.
 # CH4 : ~0.3% LEL  (atmospheric methane is ~1.7 ppm = 0.003% LEL but sensor noise adds more)
