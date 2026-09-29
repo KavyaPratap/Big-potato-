@@ -154,25 +154,54 @@ async def simulate_node1():
 # ──────────────────────────────────────────────
 # NORMALIZATION HELPERS
 # ──────────────────────────────────────────────
-# Hackathon setup: sensors are in a room with clean air.
-# We assume a baseline ADC value of ~400 for fresh air.
+# Baselines are the ADC readings observed in CLEAN AIR (room environment).
+# Subtract baseline so clean air → 0 output.
+# MQ sensors need 24-48 hr warm-up; re-run init_pg.py --calibrate after
+# sensors stabilise to update these values automatically.
+#
+# How to re-calibrate: note the steady ADC values after 48 hr warm-up,
+# then update the three BASELINE constants below.
+#
+#   Sensor       Clean-air ADC observed    Real-world clean-air value
+#   MQ-135       ~2632                     CO2 ~400 ppm, NH3 ~0 ppm
+#   H2S (MQ-136) ~ 932                     0 ppm H2S
+#   CH4 (MQ-4)   ~1936                     ~0% LEL (atmospheric CH4 is 0.02%)
+
+MQ135_BASELINE = 2632   # ADC in clean air  →  output = 400 AQI (baseline AQI)
+H2S_BASELINE   = 1300   # ADC in clean air  →  output = NOISE_FLOOR_H2S ppm
+CH4_BASELINE   = 2400   # ADC in clean air  →  output = NOISE_FLOOR_CH4 % LEL
+
+# Realistic noise floors — sensors always show a tiny non-zero value in clean air.
+# CH4 : ~0.3% LEL  (atmospheric methane is ~1.7 ppm = 0.003% LEL but sensor noise adds more)
+# H2S : ~0.2 ppm   (trace sulfur compounds always present in ambient air)
+NOISE_FLOOR_CH4 = 0.3   # % LEL
+NOISE_FLOOR_H2S = 0.2   # ppm
+
 def norm_ch4(raw: int) -> float:
-    # Baseline ~400. Map to % LEL.
-    baseline = 400
-    if raw <= baseline: return 0.0
-    return round(min(100.0, (raw - baseline) / (4095 - baseline) * 100), 1)
+    """Map raw ADC to % LEL.  Clean air → NOISE_FLOOR_CH4.  Full scale → 100% LEL."""
+    delta = raw - CH4_BASELINE
+    if delta <= 0:
+        return NOISE_FLOOR_CH4   # trace background — never show exactly 0
+    return round(min(100.0, NOISE_FLOOR_CH4 + delta / (4095 - CH4_BASELINE) * 100), 1)
 
 def norm_h2s(raw: int) -> float:
-    # Baseline ~400. Map to ppm. Toxic above 10 ppm, max e.g. 50 ppm.
-    baseline = 400
-    if raw <= baseline: return 0.0
-    return round(min(50.0, (raw - baseline) / (4095 - baseline) * 50), 1)
+    """Map raw ADC to ppm H2S.  Clean air → NOISE_FLOOR_H2S.  Full scale → 50 ppm."""
+    delta = raw - H2S_BASELINE
+    if delta <= 0:
+        return NOISE_FLOOR_H2S   # trace background — never show exactly 0
+    return round(min(50.0, NOISE_FLOOR_H2S + delta / (4095 - H2S_BASELINE) * 50), 1)
 
 def norm_mq135(raw: int) -> int:
-    # Baseline ~400.
-    baseline = 400
-    if raw <= baseline: return 400
-    return 400 + (raw - baseline)
+    """Map raw ADC to AQI-like value.  Clean air → 400 (baseline CO2 ppm).
+       Every ADC unit above baseline adds proportionally to the output."""
+    delta = raw - MQ135_BASELINE
+    if delta <= 0:
+        return 400
+    # Scale: full deflection (4095 - baseline) → +1600 above 400 = max 2000
+    scaled = int(delta / (4095 - MQ135_BASELINE) * 1600)
+    return 400 + scaled
+
+
 
 def get_sector_name(nid: int) -> str:
     if nid == 0:
@@ -264,28 +293,52 @@ def node_to_drain_node(r: dict) -> dict:
     }
 
 
+def _master_is_online() -> bool:
+    """
+    Master (node 0) never inserts its own row — it only forwards slave packets.
+    But if ANY slave reported data in the last 5 minutes, master MUST be online
+    (slaves cannot reach the backend without master's WiFi uplink).
+    """
+    row = db.query_one(
+        "SELECT 1 FROM readings WHERE node_id != 0 AND timestamp >= NOW() - INTERVAL '5 minutes' LIMIT 1"
+    )
+    return row is not None
+
+
 @app.get("/api/nodes")
 def get_nodes():
     # Fetch latest readings for nodes that have data
     latest = {r["node_id"]: r for r in latest_per_node()}
-    
+
+    # Master (node 0) is online if any slave reported in the last 5 minutes.
+    # It never inserts its own row — it's a WiFi gateway, not a sensor node.
+    master_online = _master_is_online()
+
+    locations = {
+        0: {"lat": 28.476502, "lng": 77.504466, "label": "Block A, Beta I, Greater Noida – Master Node"},
+        1: {"lat": 28.477414, "lng": 77.503938, "label": "Block A, Beta I, Greater Noida"},
+        2: {"lat": 28.478387, "lng": 77.504407, "label": "Block B, Beta I, Greater Noida"},
+    }
+
     nodes = []
     for nid in [0, 1, 2]:
-        if nid in latest:
-            nodes.append(node_to_drain_node(latest[nid]))
-        else:
-            # Create a default "offline" node entry for nodes with no data yet
-            sector_name = get_sector_name(nid)
-            locations = {
-                0: {"lat": 28.476502, "lng": 77.504466, "label": "Block A, Beta I, Greater Noida – Master Node"},
-                1: {"lat": 28.477414, "lng": 77.503938, "label": "Block A, Beta I, Greater Noida"},
-                2: {"lat": 28.478387, "lng": 77.504407, "label": "Block B, Beta I, Greater Noida"},
-            }
+
+        # ── Node 0: master gateway ────────────────────────────────────
+        if nid == 0:
+            # Always show master — infer status from slave activity
+            last_slave = db.query_one(
+                "SELECT timestamp FROM readings WHERE node_id != 0 ORDER BY id DESC LIMIT 1"
+            )
+            ts_str = (
+                last_slave["timestamp"].isoformat()
+                if last_slave and hasattr(last_slave["timestamp"], "isoformat")
+                else datetime.now(timezone.utc).isoformat()
+            )
             nodes.append({
-                "id": str(nid),
-                "sector": sector_name,
-                "status": "offline",
-                "location": locations[nid],
+                "id": "0",
+                "sector": get_sector_name(0),
+                "status": "online" if master_online else "offline",
+                "location": locations[0],
                 "waterLevel": 0,
                 "methaneLEL": 0.0,
                 "h2sPpm": 0.0,
@@ -294,18 +347,43 @@ def get_nodes():
                 "mq135": 400,
                 "waterFlow": 0.0,
                 "rssi": 0,
-                "hopCount": 1 if nid != 0 else 0,
-                "parentNodeId": "0" if nid != 0 else None,
+                "hopCount": 0,
+                "parentNodeId": None,
                 "gatewayId": "gw-master",
-                "packetLoss": 100,
-                "lastSeen": datetime.now(timezone.utc).isoformat(),
-                "battery": 0.0,
+                "packetLoss": 0,
+                "lastSeen": ts_str,
+                "battery": 100.0,
                 "risk": "low",
                 "tampered": False,
                 "installedAt": "2026-01-01T00:00:00Z",
                 "calibrationDueAt": "2026-12-01T00:00:00Z",
             })
+            continue
+
+        # ── Slave nodes (1, 2, …) ─────────────────────────────────────
+        if nid in latest:
+            nodes.append(node_to_drain_node(latest[nid]))
+        else:
+            # Node has no recent data (or no data ever) → show as offline
+            nodes.append({
+                "id": str(nid),
+                "sector": get_sector_name(nid),
+                "status": "offline",
+                "location": locations.get(nid, locations[1]),
+                "waterLevel": 0, "methaneLEL": 0.0, "h2sPpm": 0.0,
+                "temperature": 0.0, "humidity": 0.0, "mq135": 400,
+                "waterFlow": 0.0, "rssi": 0,
+                "hopCount": 1, "parentNodeId": "0",
+                "gatewayId": "gw-master", "packetLoss": 100,
+                "lastSeen": datetime.now(timezone.utc).isoformat(),
+                "battery": 0.0, "risk": "low",
+                "tampered": False,
+                "installedAt": "2026-01-01T00:00:00Z",
+                "calibrationDueAt": "2026-12-01T00:00:00Z",
+            })
+
     return nodes
+
 
 
 @app.get("/api/nodes/{node_id}")
@@ -496,9 +574,20 @@ def get_gateways():
 
 @app.get("/api/network/topology")
 def get_topology():
-    nodes = [node_to_drain_node(r) for r in latest_per_node()]
-    edges = [{"from": "gw-master", "to": n["id"], "rssi": n["rssi"], "hop": 1, "packetStatus": "good"} for n in nodes]
+    # Use get_nodes() so Network page and Overview are always consistent
+    nodes = get_nodes()
+    edges = [
+        {
+            "from": "gw-master",
+            "to": n["id"],
+            "rssi": n["rssi"],
+            "hop": n["hopCount"],
+            "packetStatus": "good" if n["status"] != "offline" else "lost"
+        }
+        for n in nodes
+    ]
     return {"gateways": get_gateways(), "nodes": nodes, "edges": edges}
+
 
 
 @app.get("/api/maintenance")
