@@ -10,7 +10,7 @@ interface SeriesConfig {
 
 /** Pick X-axis tick format based on how many hours of data are shown. */
 function xTickFormatter(hours: number) {
-  return (v: string) => {
+  return (v: any) => {
     const d = new Date(v);
     if (hours <= 24) {
       // e.g.  "14:35"
@@ -27,7 +27,7 @@ function xTickFormatter(hours: number) {
 }
 
 function tooltipLabelFormatter(hours: number) {
-  return (v: string) => {
+  return (v: any) => {
     const d = new Date(String(v));
     if (hours <= 24) {
       return d.toLocaleString("en-IN");
