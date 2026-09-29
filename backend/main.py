@@ -602,11 +602,13 @@ def get_events():
     for r in rows:
         ts = r.get("timestamp")
         ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+        ch4_norm = norm_ch4(r.get('ch4') or 0)
+        h2s_norm = norm_h2s(r.get('h2s') or 0)
         events.append({
             "id": str(r["id"]),
             "nodeId": str(r["node_id"]),
             "timestamp": ts_str,
-            "message": f"Node {r['node_id']}: T={r.get('temp')}°C H={r.get('hum')}% CH4={r.get('ch4')} H2S={r.get('h2s')}",
+            "message": f"Node {r['node_id']}: T={r.get('temp')}°C H={r.get('hum')}% CH4={ch4_norm}% LEL H2S={h2s_norm} ppm",
             "kind": "info",
         })
     return events
