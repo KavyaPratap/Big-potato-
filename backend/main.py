@@ -178,22 +178,35 @@ NOISE_FLOOR_CH4 = 0.3   # % LEL
 NOISE_FLOOR_H2S = 0.2   # ppm
 
 def norm_ch4(raw: int) -> float:
-    """Force CH4 to stay between 0-3% for all normal noise (raw < 3000)."""
-    if raw < 3000:
-        return round((raw / 3000.0) * 3.0, 1)
-    return round(min(100.0, 3.0 + (raw - 3000) / 1095.0 * 97.0), 1)
+    """Map raw ADC to % LEL. Maps from (BASELINE - 350) up to BASELINE as 0-5%."""
+    min_noise = max(0, CH4_BASELINE - 350)
+    if raw < min_noise:
+        return 0.0
+    if raw <= CH4_BASELINE:
+        return round((raw - min_noise) / float(CH4_BASELINE - min_noise) * 5.0, 1)
+    
+    # Above baseline, scale 5% to 100%
+    return round(min(100.0, 5.0 + (raw - CH4_BASELINE) / float(4095 - CH4_BASELINE) * 95.0), 1)
 
 def norm_h2s(raw: int) -> float:
-    """Force H2S to stay between 0-2 ppm for all normal noise (raw < 3000)."""
-    if raw < 3000:
-        return round((raw / 3000.0) * 2.0, 1)
-    return round(min(50.0, 2.0 + (raw - 3000) / 1095.0 * 48.0), 1)
+    """Map raw ADC to ppm H2S. Maps from (BASELINE - 160) up to BASELINE as 0-2 ppm."""
+    min_noise = max(0, H2S_BASELINE - 160)
+    if raw < min_noise:
+        return 0.0
+    if raw <= H2S_BASELINE:
+        return round((raw - min_noise) / float(H2S_BASELINE - min_noise) * 2.0, 1)
+    
+    return round(min(50.0, 2.0 + (raw - H2S_BASELINE) / float(4095 - H2S_BASELINE) * 48.0), 1)
 
 def norm_mq135(raw: int) -> int:
-    """Force MQ135 to stay between 400-1000 AQI for all normal noise (raw < 3000)."""
-    if raw < 3000:
-        return int(400 + (raw / 3000.0) * 600)
-    return int(min(4095, 1000 + (raw - 3000) / 1095.0 * 3095))
+    """Map raw ADC to AQI-like value.  Clean air → 400 (baseline CO2 ppm).
+       Every ADC unit above baseline adds proportionally to the output."""
+    delta = raw - MQ135_BASELINE
+    if delta <= 0:
+        return 400
+    # Scale: full deflection (4095 - baseline) → +1600 above 400 = max 2000
+    scaled = int(delta / (4095 - MQ135_BASELINE) * 1600)
+    return 400 + scaled
 
 
 
