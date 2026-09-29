@@ -178,18 +178,20 @@ NOISE_FLOOR_CH4 = 0.3   # % LEL
 NOISE_FLOOR_H2S = 0.2   # ppm
 
 def norm_ch4(raw: int) -> float:
-    """Map raw ADC to % LEL.  Clean air → NOISE_FLOOR_CH4.  Full scale → 100% LEL."""
-    delta = raw - CH4_BASELINE
-    if delta <= 0:
-        return NOISE_FLOOR_CH4   # trace background — never show exactly 0
-    return round(min(100.0, NOISE_FLOOR_CH4 + delta / (4095 - CH4_BASELINE) * 100), 1)
+    """Map raw ADC to % LEL. Natural noise (1300-1650) maps to 0-5%. Real gas scales to 100%."""
+    if raw < 1300:
+        return 0.0
+    if raw <= 1650:
+        return round((raw - 1300) / 350.0 * 5.0, 1)  # Fluctuates 0-5% safely
+    return round(min(100.0, 5.0 + (raw - 1650) / (4095 - 1650) * 95.0), 1)
 
 def norm_h2s(raw: int) -> float:
-    """Map raw ADC to ppm H2S.  Clean air → NOISE_FLOOR_H2S.  Full scale → 50 ppm."""
-    delta = raw - H2S_BASELINE
-    if delta <= 0:
-        return NOISE_FLOOR_H2S   # trace background — never show exactly 0
-    return round(min(50.0, NOISE_FLOOR_H2S + delta / (4095 - H2S_BASELINE) * 50), 1)
+    """Map raw ADC to ppm H2S. Natural noise (690-850) maps to 0-2 ppm."""
+    if raw < 690:
+        return 0.0
+    if raw <= 850:
+        return round((raw - 690) / 160.0 * 2.0, 1)  # Fluctuates 0-2 ppm safely
+    return round(min(50.0, 2.0 + (raw - 850) / (4095 - 850) * 48.0), 1)
 
 def norm_mq135(raw: int) -> int:
     """Map raw ADC to AQI-like value.  Clean air → 400 (baseline CO2 ppm).
