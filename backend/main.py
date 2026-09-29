@@ -178,20 +178,25 @@ NOISE_FLOOR_CH4 = 0.3   # % LEL
 NOISE_FLOOR_H2S = 0.2   # ppm
 
 def norm_ch4(raw: int) -> float:
-    """Map raw ADC to % LEL. Natural noise (1300-1650) maps to 0-5%. Real gas scales to 100%."""
-    if raw < 1300:
+    """Map raw ADC to % LEL. Maps from (BASELINE - 350) up to BASELINE as 0-5%."""
+    min_noise = max(0, CH4_BASELINE - 350)
+    if raw < min_noise:
         return 0.0
-    if raw <= 1650:
-        return round((raw - 1300) / 350.0 * 5.0, 1)  # Fluctuates 0-5% safely
-    return round(min(100.0, 5.0 + (raw - 1650) / (4095 - 1650) * 95.0), 1)
+    if raw <= CH4_BASELINE:
+        return round((raw - min_noise) / float(CH4_BASELINE - min_noise) * 5.0, 1)
+    
+    # Above baseline, scale 5% to 100%
+    return round(min(100.0, 5.0 + (raw - CH4_BASELINE) / float(4095 - CH4_BASELINE) * 95.0), 1)
 
 def norm_h2s(raw: int) -> float:
-    """Map raw ADC to ppm H2S. Natural noise (690-850) maps to 0-2 ppm."""
-    if raw < 690:
+    """Map raw ADC to ppm H2S. Maps from (BASELINE - 160) up to BASELINE as 0-2 ppm."""
+    min_noise = max(0, H2S_BASELINE - 160)
+    if raw < min_noise:
         return 0.0
-    if raw <= 850:
-        return round((raw - 690) / 160.0 * 2.0, 1)  # Fluctuates 0-2 ppm safely
-    return round(min(50.0, 2.0 + (raw - 850) / (4095 - 850) * 48.0), 1)
+    if raw <= H2S_BASELINE:
+        return round((raw - min_noise) / float(H2S_BASELINE - min_noise) * 2.0, 1)
+    
+    return round(min(50.0, 2.0 + (raw - H2S_BASELINE) / float(4095 - H2S_BASELINE) * 48.0), 1)
 
 def norm_mq135(raw: int) -> int:
     """Map raw ADC to AQI-like value.  Clean air → 400 (baseline CO2 ppm).
