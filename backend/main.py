@@ -167,9 +167,11 @@ async def simulate_node1():
 #   H2S (MQ-136) ~ 932                     0 ppm H2S
 #   CH4 (MQ-4)   ~1936                     ~0% LEL (atmospheric CH4 is 0.02%)
 
-MQ135_BASELINE = 2300   # ADC in clean air  →  output = 400 AQI (baseline AQI)
-H2S_BASELINE   = 850    # ADC in clean air  →  output = NOISE_FLOOR_H2S ppm
-CH4_BASELINE   = 2650   # ADC in clean air  →  output = NOISE_FLOOR_CH4 % LEL
+MQ135_BASELINE = 2000   # ADC in clean air  →  output = 400 AQI (baseline AQI)
+H2S_BASELINE   = 600    # ADC in clean air  →  output = ~0.5 - 0.8 ppm
+H2S_MIN_NOISE  = 350    # Noise floor ADC
+CH4_BASELINE   = 1800   # ADC in clean air  →  output = ~1.0 - 1.5 % LEL
+CH4_MIN_NOISE  = 1200   # Noise floor ADC
 
 # Realistic noise floors — sensors always show a tiny non-zero value in clean air.
 # CH4 : ~0.3% LEL  (atmospheric methane is ~1.7 ppm = 0.003% LEL but sensor noise adds more)
@@ -178,35 +180,30 @@ NOISE_FLOOR_CH4 = 0.3   # % LEL
 NOISE_FLOOR_H2S = 0.2   # ppm
 
 def norm_ch4(raw: int) -> float:
-    """Map raw ADC to % LEL. Maps from (BASELINE - 350) up to BASELINE as 0-5%."""
-    min_noise = max(0, CH4_BASELINE - 350)
-    if raw < min_noise:
+    """Map raw ADC to % LEL. Ambient noise (1200-1800) maps safely to 0.0-1.5% LEL (inside 0-3% normal range). Real gas scales to 100%."""
+    if raw < CH4_MIN_NOISE:
         return 0.0
     if raw <= CH4_BASELINE:
-        return round((raw - min_noise) / float(CH4_BASELINE - min_noise) * 5.0, 1)
+        return round((raw - CH4_MIN_NOISE) / float(CH4_BASELINE - CH4_MIN_NOISE) * 1.5, 1)
     
-    # Above baseline, scale 5% to 100%
-    return round(min(100.0, 5.0 + (raw - CH4_BASELINE) / float(4095 - CH4_BASELINE) * 95.0), 1)
+    # Above baseline, scale 1.5% to 100%
+    return round(min(100.0, 1.5 + (raw - CH4_BASELINE) / float(4095 - CH4_BASELINE) * 98.5), 1)
 
 def norm_h2s(raw: int) -> float:
-    """Map raw ADC to ppm H2S. Maps from (BASELINE - 160) up to BASELINE as 0-2 ppm."""
-    min_noise = max(0, H2S_BASELINE - 160)
-    if raw < min_noise:
+    """Map raw ADC to ppm H2S. Ambient noise (350-600) maps safely to 0.0-0.8 ppm (inside 0-6 ppm normal range). Real gas scales to 50 ppm."""
+    if raw < H2S_MIN_NOISE:
         return 0.0
     if raw <= H2S_BASELINE:
-        return round((raw - min_noise) / float(H2S_BASELINE - min_noise) * 2.0, 1)
+        return round((raw - H2S_MIN_NOISE) / float(H2S_BASELINE - H2S_MIN_NOISE) * 0.8, 1)
     
-    return round(min(50.0, 2.0 + (raw - H2S_BASELINE) / float(4095 - H2S_BASELINE) * 48.0), 1)
+    return round(min(50.0, 0.8 + (raw - H2S_BASELINE) / float(4095 - H2S_BASELINE) * 49.2), 1)
 
 def norm_mq135(raw: int) -> int:
-    """Map raw ADC to AQI-like value.  Clean air → 400 (baseline CO2 ppm).
-       Every ADC unit above baseline adds proportionally to the output."""
-    delta = raw - MQ135_BASELINE
-    if delta <= 0:
-        return 400
-    # Scale: full deflection (4095 - baseline) → +1600 above 400 = max 2000
-    scaled = int(delta / (4095 - MQ135_BASELINE) * 1600)
-    return 400 + scaled
+    """Map raw ADC to AQI. Ambient air (~2000-2200) maps around 400-500. Elevated pollutants scale smoothly to 2000+."""
+    if raw <= MQ135_BASELINE:
+        return max(350, int(400 - (MQ135_BASELINE - raw) * 0.05))
+    scaled = int((raw - MQ135_BASELINE) / float(4095 - MQ135_BASELINE) * 1600)
+    return min(4095, 400 + scaled)
 
 
 
