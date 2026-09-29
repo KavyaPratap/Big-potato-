@@ -54,7 +54,7 @@ export function Sidebar({
         </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold text-[var(--color-text-0)]">Sentinel</p>
+            <p className="truncate text-sm font-semibold text-[var(--color-text-0)]">DrainWatch</p>
             <p className="truncate text-[10px] text-[var(--color-text-2)]">Drainage Intelligence</p>
           </div>
         )}
