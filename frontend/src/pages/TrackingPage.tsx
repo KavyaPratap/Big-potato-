@@ -34,6 +34,13 @@ export default function TrackingPage() {
       accent: "warn" as const,
     },
     {
+      label: "Pre-solved",
+      value: overview ? String(overview.pre_solved ?? 0) : "--",
+      helper: "Final verification in progress",
+      icon: CheckCircle2,
+      accent: "ok" as const,
+    },
+    {
       label: "Resolved today",
       value: overview ? String(overview.resolved_today) : "--",
       helper: "Closed within SLA",

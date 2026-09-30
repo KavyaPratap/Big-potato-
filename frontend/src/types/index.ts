@@ -237,6 +237,28 @@ export interface EscalationRule {
   created_at: string;
 }
 
+export interface OfficialResolutionDocument {
+  id: number;
+  document_type: "FIELD_REPORT" | "PHOTO_EVIDENCE" | "CLEANING_CERTIFICATE" | "FLOW_RESTORE_CHECK" | "CLOSURE_MEMO" | "GOVT_APPROVAL";
+  title: string;
+  submitted_by: string;
+  submitted_by_role: string;
+  submitted_at: string;
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  file_name?: string | null;
+  notes?: string | null;
+}
+
+export interface GovernmentVerification {
+  reviewed_by: string;
+  designation: string;
+  department: string;
+  verified_at?: string | null;
+  verification_notes: string;
+  official_resolution_status: "PENDING" | "PRE_SOLVED" | "OFFICIALLY_RESOLVED" | "REJECTED";
+  certificate_number?: string | null;
+}
+
 export interface Incident {
   id: number;
   incident_number: string;
@@ -251,9 +273,15 @@ export interface Incident {
   status: IncidentStatus;
   title: string;
   description?: string | null;
+  department_name?: string | null;
+  ministry_name?: string | null;
+  assigned_team_name?: string | null;
+  assigned_department?: string | null;
   resolution_summary?: string | null;
   resolution_method?: string | null;
   next_step?: string | null;
+  official_documents?: OfficialResolutionDocument[];
+  government_verification?: GovernmentVerification | null;
   latitude?: number | null;
   longitude?: number | null;
   sector?: string | null;
