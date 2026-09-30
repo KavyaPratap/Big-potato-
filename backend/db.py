@@ -337,6 +337,18 @@ def query_one(sql: str, params=None) -> Optional[dict]:
     rows = query(sql, params)
     return rows[0] if rows else None
 
+def execute(sql: str, params=None) -> None:
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params or ())
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        release_conn(conn)
+
 def db_status() -> dict:
     """Return connection status for local and online databases."""
     local_ok = False

@@ -207,7 +207,7 @@ def ensure_default_tracking_records() -> dict[str, int]:
     team_row = db.query_one("SELECT id FROM response_teams WHERE name = 'Beta-I Drainage Response Team' LIMIT 1")
     if not team_row:
         municipal_id = created_ids.get("municipal") or _get_default_authority_id()
-        _execute_returning_id(
+        db.execute(
             "INSERT INTO response_teams (name, authority_id, team_type, contact, active) VALUES (%s, %s, %s, %s, TRUE)",
             ("Beta-I Drainage Response Team", municipal_id, "FIELD_TEAM", "+91-00000-00010"),
         )
@@ -215,7 +215,7 @@ def ensure_default_tracking_records() -> dict[str, int]:
     worker_row = db.query_one("SELECT id FROM users WHERE name = 'Operator 07' LIMIT 1")
     if not worker_row:
         municipal_id = created_ids.get("municipal") or _get_default_authority_id()
-        _execute_returning_id(
+        db.execute(
             "INSERT INTO users (name, role, authority_id, phone, email, active) VALUES (%s, %s, %s, %s, %s, TRUE)",
             ("Operator 07", "FIELD_WORKER", municipal_id, "+91-00000-00011", "operator07@drainwatch.local"),
         )
