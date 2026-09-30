@@ -9,10 +9,12 @@ import json
 import random
 
 import db  # ← dual-write PostgreSQL layer
+import tracking
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Simulator disabled so physical nodes dictate online/offline status
+    db.ensure_tracking_schema()
+    tracking.ensure_default_tracking_records()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -474,7 +476,7 @@ def get_alerts():
 
         # ── Gas alerts ────────────────────────────────────────────
         if ch4_lel > 10:
-            alerts.append({
+            alert = {
                 "id": f"ch4-{node_id}",
                 "nodeId": node_id,
                 "category": "gas",
@@ -484,9 +486,11 @@ def get_alerts():
                 "sector": sector,
                 "value": ch4_lel, "unit": "% LEL", "threshold": 10,
                 "timestamp": ts_str, "status": "active",
-            })
+            }
+            alerts.append(alert)
+            tracking.maybe_create_incident_from_alert(alert)
         if h2s_ppm > 5:
-            alerts.append({
+            alert = {
                 "id": f"h2s-{node_id}",
                 "nodeId": node_id,
                 "category": "gas",
@@ -496,11 +500,13 @@ def get_alerts():
                 "sector": sector,
                 "value": h2s_ppm, "unit": "ppm", "threshold": 5,
                 "timestamp": ts_str, "status": "active",
-            })
+            }
+            alerts.append(alert)
+            tracking.maybe_create_incident_from_alert(alert)
 
         # ── Water / flood alerts ──────────────────────────────────
         if water_lvl >= 100:
-            alerts.append({
+            alert = {
                 "id": f"flood-{node_id}",
                 "nodeId": node_id,
                 "category": "flood",
@@ -510,9 +516,11 @@ def get_alerts():
                 "sector": sector,
                 "value": water_lvl, "unit": "%", "threshold": 100,
                 "timestamp": ts_str, "status": "active",
-            })
+            }
+            alerts.append(alert)
+            tracking.maybe_create_incident_from_alert(alert)
         elif water_lvl > 75:
-            alerts.append({
+            alert = {
                 "id": f"water-{node_id}",
                 "nodeId": node_id,
                 "category": "flood",
@@ -522,8 +530,218 @@ def get_alerts():
                 "sector": sector,
                 "value": water_lvl, "unit": "%", "threshold": 75,
                 "timestamp": ts_str, "status": "active",
-            })
+            }
+            alerts.append(alert)
+            tracking.maybe_create_incident_from_alert(alert)
     return alerts
+
+
+@app.get("/api/incidents")
+def list_incidents_api():
+    return tracking.list_incidents()
+
+
+@app.get("/api/incidents/{incident_id}")
+def get_incident_api(incident_id: str):
+    try:
+        incident = tracking.get_incident_detail(int(incident_id))
+    except ValueError:
+        return JSONResponse({"detail": "Invalid incident id"}, status_code=400)
+    if not incident:
+        return JSONResponse({"detail": "Incident not found"}, status_code=404)
+    return incident
+
+
+@app.post("/api/incidents")
+async def create_incident_api(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Request body must be JSON"}, status_code=400)
+    alert = payload.get("alert") if isinstance(payload, dict) else None
+    if not alert:
+        return JSONResponse({"detail": "alert payload required"}, status_code=400)
+    incident = tracking.maybe_create_incident_from_alert(alert)
+    if not incident:
+        return JSONResponse({"detail": "Unable to create incident"}, status_code=500)
+    return incident
+
+
+@app.patch("/api/incidents/{incident_id}")
+async def patch_incident_api(incident_id: str, request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Request body must be JSON"}, status_code=400)
+    try:
+        updated = tracking.transition_incident_status(
+            int(incident_id),
+            str(payload.get("status", "DETECTED")),
+            payload.get("message") or "Status updated by operator",
+            actor_role=payload.get("actorRole") or "SYSTEM",
+            metadata=payload.get("metadata") or {},
+        )
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+    return updated
+
+
+@app.post("/api/incidents/{incident_id}/acknowledge")
+def acknowledge_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "ACKNOWLEDGED", "Worker acknowledged incident.", actor_role="FIELD_WORKER")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/assign")
+async def assign_incident_api(incident_id: str, request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Request body must be JSON"}, status_code=400)
+    return tracking.assign_incident(
+        int(incident_id),
+        authority_id=int(payload.get("authorityId") or 1),
+        team_id=payload.get("teamId"),
+        user_id=payload.get("userId"),
+        assigned_by=payload.get("assignedBy"),
+        reason=payload.get("reason") or "Assigned by operator",
+    )
+
+
+@app.post("/api/incidents/{incident_id}/start")
+def start_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "IN_PROGRESS", "Field response started.", actor_role="FIELD_WORKER")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/on-site")
+def on_site_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "FIELD_VERIFICATION", "Worker verified field conditions on site.", actor_role="FIELD_WORKER")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/resolve")
+def resolve_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "RESOLVED", "Response action completed and issue resolved.", actor_role="SUPERVISOR")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/verify")
+def verify_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "VERIFIED", "Resolution was verified by supervisor.", actor_role="SUPERVISOR")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/close")
+def close_incident_api(incident_id: str):
+    try:
+        return tracking.transition_incident_status(int(incident_id), "CLOSED", "Incident closed after verification.", actor_role="SUPERVISOR")
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.post("/api/incidents/{incident_id}/escalate")
+async def escalate_incident_api(incident_id: str, request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Request body must be JSON"}, status_code=400)
+    try:
+        return tracking.transition_incident_status(
+            int(incident_id),
+            "ESCALATED",
+            payload.get("message") or "Escalated to higher authority.",
+            actor_role=payload.get("actorRole") or "MUNICIPAL_OPERATOR",
+            metadata={"toRole": payload.get("toRole")},
+        )
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.get("/api/incidents/{incident_id}/timeline")
+def get_incident_timeline_api(incident_id: str):
+    try:
+        incident = tracking.get_incident_detail(int(incident_id))
+    except ValueError:
+        return JSONResponse({"detail": "Invalid incident id"}, status_code=400)
+    if not incident:
+        return JSONResponse({"detail": "Incident not found"}, status_code=404)
+    return incident.get("events", [])
+
+
+@app.get("/api/incidents/{incident_id}/evidence")
+def get_incident_evidence_api(incident_id: str):
+    try:
+        incident = tracking.get_incident_detail(int(incident_id))
+    except ValueError:
+        return JSONResponse({"detail": "Invalid incident id"}, status_code=400)
+    if not incident:
+        return JSONResponse({"detail": "Incident not found"}, status_code=404)
+    return incident.get("evidence", [])
+
+
+@app.post("/api/incidents/{incident_id}/evidence")
+async def create_incident_evidence_api(incident_id: str, request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Request body must be JSON"}, status_code=400)
+    try:
+        evidence_record = tracking.create_evidence_record(
+            int(incident_id),
+            payload.get("type") or "NOTE",
+            payload.get("url") or "/mock/evidence",
+            payload.get("description") or "Field evidence captured",
+            payload.get("uploadedBy") or "operator",
+        )
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+    return evidence_record
+
+
+@app.get("/api/authorities")
+def list_authorities_api():
+    return tracking.get_authorities()
+
+
+@app.get("/api/response-teams")
+def list_response_teams_api():
+    return tracking.get_response_teams()
+
+
+@app.get("/api/notifications")
+def list_notifications_api():
+    return tracking.get_notifications()
+
+
+@app.get("/api/escalation-rules")
+def list_escalation_rules_api():
+    return tracking.get_escalation_rules()
+
+
+@app.get("/api/tracking/overview")
+def tracking_overview_api():
+    return tracking.get_tracking_overview()
+
+
+@app.get("/api/tracking/map")
+def tracking_map_api():
+    return tracking.get_tracking_map()
+
+
+@app.get("/api/tracking/statistics")
+def tracking_statistics_api():
+    return tracking.get_tracking_statistics()
 
 
 @app.post("/api/alerts/{alert_id}/acknowledge")
