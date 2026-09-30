@@ -54,9 +54,10 @@ class TrackingCoreTests(unittest.TestCase):
 
     def test_escalation_chain_routes_to_ministry_chain(self):
         chain = build_escalation_chain(IncidentCategory.FLOOD_RISK, IncidentPriority.CRITICAL)
-        self.assertTrue(any(step["ministry"] == "Municipal Drainage Operations" for step in chain))
-        self.assertTrue(any(step["ministry"] == "State Urban Water Department" for step in chain))
-        self.assertTrue(any(step["ministry"] == "Ministry of Jal Shakti" for step in chain))
+        ministries = [step["ministry"] for step in chain]
+        self.assertIn("Municipal Drainage Operations", ministries)
+        self.assertIn("State Urban Water Department", ministries)
+        self.assertIn("Ministry of Jal Shakti", ministries)
 
 
 if __name__ == "__main__":

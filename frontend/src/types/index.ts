@@ -149,7 +149,7 @@ export interface SystemEvent {
 export type AuthorityType = "FIELD_TEAM" | "MUNICIPAL" | "REGIONAL" | "STATE" | "CENTRAL" | "OVERSIGHT";
 export type AuthorityRole = "FIELD_WORKER" | "SUPERVISOR" | "MUNICIPAL_OPERATOR" | "REGIONAL_OPERATOR" | "STATE_OPERATOR" | "CENTRAL_OPERATOR" | "OVERSIGHT" | "ADMIN";
 export type IncidentPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-export type IncidentStatus = "DETECTED" | "TRIAGED" | "ASSIGNED" | "ACKNOWLEDGED" | "IN_PROGRESS" | "FIELD_VERIFICATION" | "RESOLVED" | "VERIFIED" | "CLOSED" | "ESCALATED" | "REOPENED" | "CANCELLED";
+export type IncidentStatus = "DETECTED" | "TRIAGED" | "ASSIGNED" | "ACKNOWLEDGED" | "IN_PROGRESS" | "FIELD_VERIFICATION" | "PRE_SOLVED" | "RESOLVED" | "VERIFIED" | "CLOSED" | "ESCALATED" | "REOPENED" | "CANCELLED";
 export type IncidentCategory = "WATER_LEVEL" | "FLOOD_RISK" | "BLOCKAGE" | "METHANE" | "H2S" | "AIR_QUALITY" | "SENSOR_FAILURE" | "GATEWAY_FAILURE" | "TAMPER" | "BATTERY" | "COMMUNICATION_FAILURE" | "PREDICTIVE_RISK" | "MAINTENANCE" | "OTHER";
 export type NotificationChannel = "IN_APP" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH" | "SYSTEM";
 export type NotificationStatus = "QUEUED" | "SENT" | "DELIVERED" | "ACKNOWLEDGED" | "FAILED";
@@ -251,6 +251,9 @@ export interface Incident {
   status: IncidentStatus;
   title: string;
   description?: string | null;
+  resolution_summary?: string | null;
+  resolution_method?: string | null;
+  next_step?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   sector?: string | null;
@@ -278,6 +281,7 @@ export interface TrackingOverview {
   in_response: number;
   escalated: number;
   resolved_today: number;
+  pre_solved: number;
 }
 
 export interface TrackingMapMarker {

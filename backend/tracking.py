@@ -129,6 +129,54 @@ def build_incident_title(category: str | IncidentCategory, node_label: str) -> s
     return f"{label} at {node_label}"
 
 
+def build_escalation_chain(category: str | IncidentCategory, priority: IncidentPriority | str) -> list[dict]:
+    category_name = _normalize_enum_value(category)
+    priority_name = _normalize_enum_value(priority)
+
+    base_chain = [
+        {
+            "step": 1,
+            "role": "Field Response Team",
+            "ministry": "Municipal Drainage Operations",
+            "channel": "SMS + in-app",
+            "reason": "Primary local response team",
+            "contact": "Beta-I Field Unit",
+        },
+        {
+            "step": 2,
+            "role": "Municipal Supervisor",
+            "ministry": "Greater Noida Municipal Corporation",
+            "channel": "Dashboard + dispatch",
+            "reason": "District-level coordination",
+            "contact": "Municipal Ops Desk",
+        },
+        {
+            "step": 3,
+            "role": "State Water Authority",
+            "ministry": "State Urban Water Department",
+            "channel": "Email + escalation alert",
+            "reason": "Regional water network oversight",
+            "contact": "State Response Cell",
+        },
+        {
+            "step": 4,
+            "role": "National oversight",
+            "ministry": "Ministry of Jal Shakti",
+            "channel": "Executive dashboard + briefing",
+            "reason": "Strategic public utility response",
+            "contact": "National Drainage Coordination",
+        },
+    ]
+
+    if priority_name in {IncidentPriority.CRITICAL.value, "CRITICAL"} or category_name in {IncidentCategory.FLOOD_RISK.value, IncidentCategory.WATER_LEVEL.value, IncidentCategory.METHANE.value, IncidentCategory.H2S.value}:
+        return base_chain
+
+    if priority_name in {IncidentPriority.HIGH.value, "HIGH"}:
+        return base_chain[:3]
+
+    return base_chain[:2]
+
+
 def _execute_returning_id(sql: str, params: tuple | dict | None = None) -> Optional[int]:
     conn = db.get_conn()
     try:
@@ -138,7 +186,21 @@ def _execute_returning_id(sql: str, params: tuple | dict | None = None) -> Optio
         conn.commit()
         if row is None:
             return None
-        return row["id"]
+        if isinstance(row, dict):
+            value = row.get("id")
+            if value is not None:
+                return int(value)
+            if row:
+                return int(next(iter(row.values())))
+            return None
+        try:
+            return int(row[0])
+        except (TypeError, KeyError, IndexError):
+            if hasattr(row, "values"):
+                values = tuple(row.values())
+                if values and values[0] is not None:
+                    return int(values[0])
+            return None
     finally:
         db.release_conn(conn)
 
