@@ -138,7 +138,7 @@ def _execute_returning_id(sql: str, params: tuple | dict | None = None) -> Optio
         conn.commit()
         if row is None:
             return None
-        return row[0]
+        return row["id"]
     finally:
         db.release_conn(conn)
 
